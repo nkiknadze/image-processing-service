@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="ka">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Image Processing Service</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-50 min-h-screen">
+
+    <div id="user-info" class="hidden fixed top-5 right-5 flex items-center gap-4 z-50">
+        <span id="display-username" class="text-slate-700 font-semibold bg-white/80 px-3 py-2 rounded-lg shadow-sm border border-slate-100"></span>
+        <button onclick="handleLogout()" class="bg-red-500 text-white px-4 py-2 rounded-lg font-bold shadow-lg hover:bg-red-600 transition-all">
+            გამოსვლა 🚪
+        </button>
+    </div>
+
+    <div class="container mx-auto px-4 py-10 max-w-5xl">
+        <header class="text-center mb-12">
+            <h1 class="text-4xl font-extrabold text-slate-800">Image Service</h1>
+            <p class="text-slate-500 mt-2">ატვირთე/დაამუშავე</p>
+        </header>
+
+        <section id="auth-section" class="max-w-md mx-auto bg-white p-8 rounded-2xl shadow-sm border border-slate-100">
+            <h2 id="auth-title" class="text-xl font-bold mb-6 text-slate-700 text-center">შესვლა</h2>
+            <div class="space-y-4">
+                <input type="text" id="auth-username" placeholder="მომხმარებლის სახელი" class="hidden w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all">
+                <input type="email" id="auth-email" placeholder="ელ-ფოსტა" class="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all">
+                <input type="password" id="auth-password" placeholder="პაროლი" class="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all">
+                <button id="auth-submit-btn" onclick="handleAuth()" class="w-full bg-blue-600 text-white font-semibold py-3 rounded-xl hover:bg-blue-700 transition-colors">შესვლა</button>
+            </div>
+            <div class="mt-6 text-center">
+                <button id="auth-toggle-btn" onclick="toggleAuthMode()" class="text-sm text-blue-500 hover:underline">რეგისტრაცია</button>
+            </div>
+            <p id="auth-error" class="text-red-500 text-sm mt-4 hidden text-center"></p>
+        </section>
+
+        <main id="main-content" class="hidden space-y-8">
+            <section class="bg-white p-8 rounded-2xl shadow-sm border border-slate-100 mb-8">
+                <h2 class="text-xl font-bold mb-4 text-slate-700">სურათის ატვირთვა</h2>
+                <div class="flex flex-col sm:flex-row gap-4">
+                    <input type="file" id="image-input" accept="image/*" class="flex-1 px-4 py-2 border border-dashed border-slate-300 rounded-xl hover:bg-slate-50 cursor-pointer">
+                    <button onclick="handleUpload()" class="bg-green-600 text-white font-semibold px-8 py-3 rounded-xl hover:bg-green-700 transition-colors">ატვირთვა</button>
+                </div>
+                <p id="upload-status" class="mt-2 text-sm hidden"></p>
+            </section>
+
+            <div id="test-preview" class="p-4 border rounded-xl bg-white hidden text-center">
+                <p class="text-sm text-gray-500 mb-2">ბოლო ატვირთული სურათი:</p>
+                <img id="preview-img" src="" class="mx-auto max-h-64 rounded-lg shadow-sm">
+            </div>
+
+            <section class="bg-white p-8 rounded-2xl shadow-sm border border-slate-100">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-xl font-bold text-slate-700">ჩემი გალერეა</h2>
+                    <button onclick="loadImages()" class="text-blue-500 hover:text-blue-700 text-sm font-medium">განახლება ↻</button>
+                </div>
+                <div id="gallery-grid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6"></div>
+                <div id="pagination" class="mt-8 flex justify-center gap-2"></div>
+            </section>
+        </main>
+    </div>
+
+    <div id="transform-modal" class="fixed inset-0 bg-black/50 hidden flex items-center justify-center p-4 z-50 overflow-y-auto">
+        <div class="bg-white rounded-2xl max-w-2xl w-full p-6 shadow-2xl my-8">
+            <h3 class="text-xl font-bold mb-4 text-slate-700 border-b pb-2">სურათის დამუშავება</h3>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6 text-sm">
+                <div class="space-y-2">
+                    <label class="font-bold text-slate-600">ზომა & ამოჭრა</label>
+                    <div class="flex gap-2">
+                        <input type="number" id="tr-width" placeholder="სიგანე px" class="w-1/2 p-2 border rounded-lg outline-none focus:ring-2 focus:ring-blue-500">
+                        <input type="number" id="tr-height" placeholder="სიმაღლე px" class="w-1/2 p-2 border rounded-lg outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <select id="tr-crop" class="w-full p-2 border rounded-lg">
+                        <option value="scale">Scale (ზომის შეცვლა)</option>
+                        <option value="crop">Crop (ამოჭრა ცენტრიდან)</option>
+                        <option value="pad">Pad (ჩარჩოში ჩასმა)</option>
+                        <option value="thumb">Thumbnail</option>
+                    </select>
+                </div>
+
+                <div class="space-y-2">
+                    <label class="font-bold text-slate-600">ორიენტაცია</label>
+                    <input type="number" id="tr-rotate" placeholder="მობრუნება (0-360°)" class="w-full p-2 border rounded-lg outline-none focus:ring-2 focus:ring-blue-500">
+                    <select id="tr-flip" class="w-full p-2 border rounded-lg">
+                        <option value="">No Flip (ორიგინალი)</option>
+                        <option value="h">Horizontal (Mirror)</option>
+                        <option value="v">Vertical (Flip)</option>
+                    </select>
+                </div>
+
+                <div class="space-y-2">
+                    <label class="font-bold text-slate-600">ეფექტები & ფორმატი</label>
+                    <select id="tr-effect" class="w-full p-2 border rounded-lg">
+                        <option value="">ეფექტის გარეშე</option>
+                        <option value="grayscale">Grayscale (შავ-თეთრი)</option>
+                        <option value="sepia">Sepia (რეტრო)</option>
+                        <option value="cartoonify">Cartoonify (მულტფილმი)</option>
+                        <option value="vignette">Vignette</option>
+                    </select>
+                    <select id="tr-format" class="w-full p-2 border rounded-lg">
+                        <option value="">ფორმატის შეცვლა</option>
+                        <option value="jpg">JPG-ზე გადაყვანა</option>
+                        <option value="png">PNG-ზე გადაყვანა</option>
+                        <option value="webp">WebP-ზე გადაყვანა</option>
+                    </select>
+                </div>
+
+                <div class="space-y-3 pt-2">
+                    <label class="font-bold text-slate-600">დამატებითი</label>
+                    <div class="flex flex-col gap-2">
+                        <label class="flex items-center gap-2 cursor-pointer">
+                            <input type="checkbox" id="tr-compress" class="w-4 h-4"> შეკუმშვა (Compress)
+                        </label>
+                        <label class="flex items-center gap-2 cursor-pointer">
+                            <input type="checkbox" id="tr-watermark" class="w-4 h-4"> Watermark-ის დადება
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex gap-3 border-t pt-4">
+                <button onclick="applyAllTransforms()" class="flex-1 bg-blue-600 text-white font-bold py-3 rounded-xl hover:bg-blue-700 transition-all">გამოყენება ✨</button>
+                <button onclick="closeModal()" class="flex-1 bg-slate-100 text-slate-600 font-bold py-3 rounded-xl hover:bg-slate-200 transition-all">გაუქმება</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let authToken = "";
+        let isLoginMode = true;
+        let currentPage = 1;
+        let selectedImageId = null;
+
+        function toggleAuthMode() {
+            isLoginMode = !isLoginMode;
+            const title = document.getElementById('auth-title');
+            const submitBtn = document.getElementById('auth-submit-btn');
+            const toggleBtn = document.getElementById('auth-toggle-btn');
+            const usernameInput = document.getElementById('auth-username');
+
+            if (isLoginMode) {
+                title.innerText = "შესვლა";
+                submitBtn.innerText = "შესვლა";
+                toggleBtn.innerText = "რეგისტრაცია";
+                usernameInput.classList.add('hidden');
+            } else {
+                title.innerText = "რეგისტრაცია";
+                submitBtn.innerText = "რეგისტრაცია";
+                toggleBtn.innerText = "ავტორიზაცია";
+                usernameInput.classList.remove('hidden');
+            }
+        }
+
+        async function handleAuth() {
+            const username = document.getElementById('auth-username').value;
+            const mail = document.getElementById('auth-email').value;
+            const password = document.getElementById('auth-password').value;
+            const errorEl = document.getElementById('auth-error');
+
+            const endpoint = isLoginMode ? '/auth/login' : '/auth/register';
+            const bodyData = isLoginMode ? { mail, password } : { username, mail, password };
+
+            try {
+                const response = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(bodyData)
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    if (isLoginMode) {
+                        authToken = data.token;
+                        const displayName = (data.user && data.user.username) ? data.user.username : mail.split('@')[0];
+                        document.getElementById('display-username').innerText = `👤 ${displayName}`;
+                        document.getElementById('user-info').classList.remove('hidden');
+                        document.getElementById('auth-section').classList.add('hidden');
+                        document.getElementById('main-content').classList.remove('hidden');
+                        loadImages();
+                    } else {
+                        alert("რეგისტრაცია წარმატებულია");
+                        toggleAuthMode();
+                    }
+                } else {
+                    errorEl.innerText = data.message || "შეცდომა მოხდა";
+                    errorEl.classList.remove('hidden');
+                }
+            } catch (err) {
+                console.error("Auth error:", err);
+                errorEl.innerText = "error";
+                errorEl.classList.remove('hidden');
+            }
+        }
+
+        async function handleUpload() {
+            const fileInput = document.getElementById('image-input');
+            const statusEl = document.getElementById('upload-status');
+            const previewDiv = document.getElementById('test-preview');
+            const previewImg = document.getElementById('preview-img');
+
+            if (!fileInput.files[0]) {
+                alert("გთხოვთ, აირჩიოთ ფაილი");
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('image', fileInput.files[0]);
+            statusEl.innerText = "იტვირთება...";
+            statusEl.classList.remove('hidden');
+
+            try {
+                const response = await fetch('/images', {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${authToken}` },
+                    body: formData
+                });
+
+                const data = await response.json();
+                if (response.ok) {
+                    statusEl.innerText = "სურათი წარმატებით აიტვირთა!";
+                    previewImg.src = data.url;
+                    previewDiv.classList.remove('hidden');
+                    loadImages();
+                    fileInput.value = "";
+                } else {
+                    statusEl.innerText = data.message || "ატვირთვის შეცდომა";
+                }
+            } catch (err) {
+                console.error("Upload error:", err);
+                statusEl.innerText = "error";
+            }
+        }
+
+        async function loadImages(page = 1) {
+            currentPage = page;
+            const grid = document.getElementById('gallery-grid');
+            try {
+                const response = await fetch(`/images?page=${page}&limit=6`, {
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+                const result = await response.json();
+
+                grid.innerHTML = "";
+                result.data.forEach(img => {
+                    grid.innerHTML += `
+                        <div class="group relative bg-slate-50 rounded-xl overflow-hidden border border-slate-100 hover:shadow-md transition-all">
+                            <img src="${img.url}" class="w-full h-48 object-cover">
+                            <div class="p-3 flex justify-between items-center">
+                                <span class="text-xs text-slate-400">ID: ${img.id}</span>
+                                <button onclick="openTransformModal(${img.id})" class="bg-blue-50 text-blue-600 text-xs font-bold px-3 py-1 rounded-lg hover:bg-blue-600 hover:text-white transition-all">დამუშავება</button>
+                            </div>
+                        </div>
+                    `;
+                });
+                renderPagination(result.pagination);
+            } catch (err) {
+                console.error("გალერეის ჩატვირთვის შეცდომა:", err);
+            }
+        }
+
+        function renderPagination(data) {
+            const container = document.getElementById('pagination');
+            container.innerHTML = "";
+            for (let i = 1; i <= data.pages; i++) {
+                container.innerHTML += `
+                    <button onclick="loadImages(${i})" class="px-4 py-2 rounded-lg border ${i === data.page ? 'bg-blue-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-50'} transition-all">${i}</button>
+                `;
+            }
+        }
+
+        function openTransformModal(id) {
+            selectedImageId = id;
+            document.getElementById('transform-modal').classList.remove('hidden');
+        }
+
+        function closeModal() {
+            document.getElementById('transform-modal').classList.add('hidden');
+            selectedImageId = null;
+        }
+
+        // ახალი ფუნქცია ყველა ტრანსფორმაციისთვის
+        async function applyAllTransforms() {
+            const transformations = {
+                width: document.getElementById('tr-width').value ? parseInt(document.getElementById('tr-width').value) : null,
+                height: document.getElementById('tr-height').value ? parseInt(document.getElementById('tr-height').value) : null,
+                crop: document.getElementById('tr-crop').value,
+                rotate: document.getElementById('tr-rotate').value ? parseInt(document.getElementById('tr-rotate').value) : 0,
+                flip: document.getElementById('tr-flip').value,
+                effect: document.getElementById('tr-effect').value,
+                format: document.getElementById('tr-format').value,
+                compress: document.getElementById('tr-compress').checked,
+                watermark: document.getElementById('tr-watermark').checked
+            };
+
+            try {
+                const response = await fetch(`/images/${selectedImageId}/transform`, {
+                    method: 'POST',
+                    headers: { 
+                        'Authorization': `Bearer ${authToken}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ transformations })
+                });
+
+                const data = await response.json();
+                if (response.ok) {
+                    alert("სურათი წარმატებით დამუშავდა!");
+                    const freshUrl = data.url + (data.url.includes('?') ? '&' : '?') + 't=' + new Date().getTime();
+                    window.open(freshUrl, '_blank');
+                    closeModal();
+                    loadImages(currentPage);
+                } else {
+                    alert("შეცდომა: " + data.message);
+                }
+            } catch (err) {
+                console.error("Transform error:", err);
+            }
+        }
+
+        function handleLogout() {
+            authToken = ""; 
+            document.getElementById('main-content').classList.add('hidden');
+            document.getElementById('user-info').classList.add('hidden');
+            document.getElementById('display-username').innerText = "";
+            const grid = document.getElementById('gallery-grid');
+            if (grid) grid.innerHTML = "";
+            document.getElementById('auth-section').classList.remove('hidden');
+        }
+    </script>
+</body>
+</html>
