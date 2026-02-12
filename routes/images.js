@@ -64,6 +64,22 @@ router.get('/', authenticateToken, async (req, res) => {
     }
 });
 
+router.get('/:id', authenticateToken, async (req, res) => {
+    const db = req.app.get('db');
+    const imageId = req.params.id;
+
+    try {
+        const image = await db.get('SELECT * FROM images WHERE id = ?', [imageId]);
+        if (!image) return res.status(404).json({ message: "სურათი ვერ მოიძებნა" });
+
+        const history = await db.all('SELECT * FROM transformations WHERE image_id = ?', [imageId]);
+
+        res.json({ image, history });
+    } catch (error) {
+        res.status(500).json({ message: "შეცდომა მონაცემების წამოღებისას" });
+    }
+});
+
 router.post('/:id/transform', authenticateToken, async (req, res) => {
     const db = req.app.get('db');
     const { transformations } = req.body;
